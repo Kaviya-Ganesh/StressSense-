@@ -43,13 +43,11 @@ StressSense/
 
 HOW TO RUN:
 
-  # 1️⃣ Install dependencies
+1️⃣ Install dependencies
 pip install -r requirements.txt
-
-  # 2️⃣ Train model (optional if artifacts exist)
+2️⃣ Train model (optional if artifacts exist)
 python src/train.py
-
-  # 3️⃣ Run the app
+3️⃣ Run the app
 streamlit run app/app.py
 
 DATASET:
