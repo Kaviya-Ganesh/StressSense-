@@ -1,106 +1,200 @@
 import streamlit as st
+import joblib
 import numpy as np
 import pandas as pd
-import joblib
-import re
 from nltk.sentiment import SentimentIntensityAnalyzer
 import nltk
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+
+# ----------------- LOAD MODEL & SCALER -----------------
+model = joblib.load("artifacts/final_model.pkl")
+scaler = joblib.load("artifacts/scaler.pkl")
+feature_order = joblib.load("artifacts/feature_order.pkl")
 
 nltk.download("vader_lexicon", quiet=True)
-
-MODEL_DIR = r"C:/Users/kaviy/OneDrive/Desktop/StressSense/models"
-
-ensemble = joblib.load(f"{MODEL_DIR}/ensemble.pkl")
-rf = joblib.load(f"{MODEL_DIR}/rf.pkl")
-scaler = joblib.load(f"{MODEL_DIR}/scaler.pkl")
-imputer = joblib.load(f"{MODEL_DIR}/imputer.pkl")
-feature_order = joblib.load(f"{MODEL_DIR}/feature_order.pkl")
-
 sid = SentimentIntensityAnalyzer()
 
-def clean_text(text):
-    text = str(text)
-    text = re.sub(r"http\S+|www\S+|@\w+|#\w+", " ", text)
-    text = re.sub(r"[^a-zA-Z\s]", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip().lower()
+# ----------------- PAGE CONFIG -----------------
+st.set_page_config(page_title="StressSense", page_icon="🌈", layout="wide")
 
-def sentiment_feature(text):
-    text = clean_text(text)
-    return sid.polarity_scores(text)["compound"]
-
-def prepare_input(lifestyle_values, text):
-    sentiment = sentiment_feature(text)
-    data = lifestyle_values + [sentiment]
-    df = pd.DataFrame([data], columns=feature_order)
-    df = imputer.transform(df)
-    df = scaler.transform(df)
-    return df
-
-st.set_page_config(page_title="StressSense", layout="wide")
-
-# ---- HEADER ---- #
 st.markdown("""
-<div style="text-align:center;">
-<h1>🧠 StressSense</h1>
-<p style="font-size:18px;">AI-powered Stress Assessment Using Lifestyle + Emotional Expression</p>
-</div>
+    <style>
+        body { background-color: #1e1e1e; color: #f1f1f1; }
+        .title {
+            text-align: center; 
+            font-size: 3em; 
+            font-weight: 700; 
+            color: #8e97fd; 
+            font-family: 'Poppins', sans-serif;
+            animation: fadeIn 1.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from {opacity: 0;}
+            to {opacity: 1;}
+        }
+        h3 { color: #d1d1ff; font-family: 'Poppins'; }
+        .stButton>button {
+            background-color: #8e97fd; 
+            color: white;
+            border-radius: 10px;
+            height: 50px;
+            width: 100%;
+            font-size: 16px;
+            border: none;
+            transition: 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #b5aafc;
+            color: #000;
+            transform: scale(1.03);
+        }
+        .result-box {
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.3em;
+            margin-top: 20px;
+        }
+        .low { background-color: #b8f2e6; color: #055160; }
+        .moderate { background-color: #fff3cd; color: #664d03; }
+        .high { background-color: #f5c6cb; color: #58151c; }
+        .suggest-box {
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 1.1em;
+            background-color: #e0e7ff;
+            color: #2e2e2e;
+            margin-top: 10px;
+        }
+    </style>
 """, unsafe_allow_html=True)
 
+# ----------------- TITLE -----------------
+st.markdown("<div class='title'>🌈 StressSense – Balance Your Mind</div>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center;color:#aaa;'>Lifestyle + Emotions = Mindful Well-being</p>", unsafe_allow_html=True)
+
+# ----------------- USER INPUTS -----------------
+st.markdown("### 🧘‍♀️ Enter your details below:")
+
+st.subheader("🛏️ Sleep Habits")
 col1, col2 = st.columns(2)
-
 with col1:
-    age = st.number_input("**Age**", 15, 60, 20)
-    cgpa = st.number_input("**CGPA (0–10)**", 0.0, 10.0, 7.0)
-    depression = st.selectbox("**Do you feel depressed?**", [0, 1])
-    anxiety = st.selectbox("**Do you feel anxious?**", [0, 1])
-
+    sleep_duration = st.slider("Sleep Duration (hours)", 0, 12, 7)
+    sleep_quality = st.selectbox("Sleep Quality (1=Poor, 5=Excellent)", [1, 2, 3, 4, 5])
 with col2:
-    panic = st.selectbox("**Do you experience panic attacks?**", [0, 1])
-    treatment = st.selectbox("**Have you consulted a specialist?**", [0, 1])
-    text_input = st.text_area("**Describe how you're feeling today** (1–3 sentences)")
+    study_hours = st.slider("Average Study Hours (per day)", 0, 15, 5)
+    screen_time = st.slider("Screen Time (hours/day)", 0, 15, 6)
 
-if st.button("🔍 Analyze Stress", use_container_width=True):
+st.subheader("📚 Study & Academic Pressure")
+col3, col4 = st.columns(2)
+with col3:
+    academic_pressure = st.selectbox("Academic Pressure (1=Low, 5=High)", [1, 2, 3, 4, 5])
+    exam_stress = st.selectbox("Exam Stress (1=Low, 5=High)", [1, 2, 3, 4, 5])
+with col4:
+    study_satisfaction = st.selectbox("Satisfaction with Study Routine (1=Low, 5=High)", [1, 2, 3, 4, 5])
+    procrastination = st.selectbox("Do you procrastinate often?", [0, 1])
 
-    vals = [age, cgpa, depression, anxiety, panic, treatment]
-    X = prepare_input(vals, text_input)
+st.subheader("🧍‍♀️ Health & Lifestyle")
+col5, col6 = st.columns(2)
+with col5:
+    exercise_frequency = st.selectbox("Exercise Frequency (per week)", [0, 1, 2, 3, 4, 5, 6, 7])
+    water_intake = st.slider("Water Intake (liters/day)", 0.0, 5.0, 2.0)
+    social_activity = st.selectbox("Do you socialize with friends/family?", [0, 1])
+with col6:
+    diet_quality = st.selectbox("Diet Quality (1=Poor, 5=Excellent)", [1, 2, 3, 4, 5])
+    bmi = st.number_input("BMI", min_value=10.0, max_value=40.0, value=22.0)
+    health_issues = st.selectbox("Any current health issues?", [0, 1])
 
-    probs = ensemble.predict_proba(X)[0]
+st.subheader("💭 Emotional & Mental State")
+col7, col8 = st.columns(2)
+with col7:
+    depression = st.selectbox("Do you feel depressed?", [0, 1])
+    anxiety = st.selectbox("Do you feel anxious?", [0, 1])
+    panic_attack = st.selectbox("Do you experience panic attacks?", [0, 1])
+with col8:
+    specialist = st.selectbox("Have you consulted a specialist?", [0, 1])
+    motivation_level = st.selectbox("Motivation Level (1=Low, 5=High)", [1, 2, 3, 4, 5])
+    concentration_level = st.selectbox("Concentration Ability (1=Low, 5=High)", [1, 2, 3, 4, 5])
+
+st.subheader("✍️ Describe how you’re feeling today (1–3 sentences):")
+text_input = st.text_area("Example: I felt relaxed after studying, went out for a walk, and had a peaceful evening.")
+
+# ----------------- ANALYSIS -----------------
+if st.button("🌸 Analyze Stress"):
+    sentiment_score = sid.polarity_scores(text_input)["compound"]
+
+    X = pd.DataFrame([{
+        "sleep_duration": sleep_duration,
+        "sleep_quality": sleep_quality,
+        "study_hours": study_hours,
+        "screen_time": screen_time,
+        "academic_pressure": academic_pressure,
+        "exam_stress": exam_stress,
+        "study_satisfaction": study_satisfaction,
+        "procrastination": procrastination,
+        "exercise_frequency": exercise_frequency,
+        "water_intake": water_intake,
+        "social_activity": social_activity,
+        "diet_quality": diet_quality,
+        "bmi": bmi,
+        "health_issues": health_issues,
+        "depression": depression,
+        "anxiety": anxiety,
+        "panic_attack": panic_attack,
+        "specialist": specialist,
+        "motivation_level": motivation_level,
+        "concentration_level": concentration_level,
+        "sentiment_score": sentiment_score,
+        "age": 20,
+        "cgpa": 7.5,
+        "stress_label": 0  # dummy alignment
+    }])
+
+    # Align features
+    expected_features = feature_order
+    for c in expected_features:
+        if c not in X.columns:
+            X[c] = 0
+    X = X[expected_features]
+
+    X_scaled = scaler.transform(X)
+    probs = model.predict_proba(X_scaled)[0]
     pred = np.argmax(probs)
-    conf = max(probs)
+    conf = np.max(probs) * 100
 
-    level = ["😌 Low Stress", "😟 Moderate Stress", "🔥 High Stress"][pred]
-    color = ["#2ecc71", "#f1c40f", "#e74c3c"][pred]
+    stress_labels = ["Low Stress", "Moderate Stress", "High Stress"]
+    stress_colors = ["#b8f2e6", "#fff3cd", "#f5c6cb"]
+    stress_emojis = ["😊", "😟", "😣"]
 
-    # ---- RESULT CARD ---- #
     st.markdown(f"""
-    <div style="background:{color}; padding:20px; border-radius:12px; text-align:center;">
-        <h2 style="color:white;">{level}</h2>
-        <p style="color:white; font-size:18px;">Confidence: <b>{conf*100:.1f}%</b></p>
-    </div>
+        <div class='result-box {["low","moderate","high"][pred]}'>
+            {stress_emojis[pred]} <b>{stress_labels[pred]}</b><br>
+            Confidence: {conf:.1f}% | Sentiment Score: {sentiment_score:.2f}
+        </div>
     """, unsafe_allow_html=True)
 
-    # ---- SUGGESTIONS ---- #
-    st.write("### 💡 Recommended Well-being Action")
     if pred == 0:
-        st.success("You're doing well! Maintain consistent sleep, mindful breaks, and hydration. 🌿")
+        msg = "You're in a good zone 🌿 Keep your balanced habits and mindful routine."
     elif pred == 1:
-        st.warning("Try practicing breathing exercises, short breaks while studying, and light walks. 🧘‍♀️")
+        msg = "Take breaks, meditate, and focus on your breathing to center yourself 🌸."
     else:
-        st.error("Consider talking with a counselor, reducing workload, and practicing emotional journaling. ❤️‍🩹")
+        msg = "You may be overwhelmed — please reach out to a counselor or someone you trust ❤️."
+    
+    st.markdown(f"<div class='suggest-box'>💡 <b>Recommended Well-being Tip:</b> {msg}</div>", unsafe_allow_html=True)
 
-    # ---- FEATURE IMPORTANCE ---- #
-    st.write("---")
-    st.write("### 🔍 Top Stress Influencing Factors (Model Explanation)")
-
-    importances = rf.feature_importances_
-    fi = pd.DataFrame({"feature": feature_order, "importance": importances})
-    fi = fi.sort_values(by="importance", ascending=False).head(10)
-
-    fig, ax = plt.subplots(figsize=(6,4))
-    ax.barh(fi["feature"], fi["importance"])
-    ax.set_xlabel("Importance Score")
-    ax.set_ylabel("Feature")
-    ax.invert_yaxis()
-    st.pyplot(fig)
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=pred,
+        title={'text': "Stress Level"},
+        gauge={
+            'axis': {'range': [0, 2], 'tickvals': [0, 1, 2], 'ticktext': ['Low', 'Moderate', 'High']},
+            'bar': {'color': stress_colors[pred]},
+            'steps': [
+                {'range': [0, 1], 'color': "#b8f2e6"},
+                {'range': [1, 2], 'color': "#fff3cd"},
+                {'range': [2, 3], 'color': "#f5c6cb"},
+            ]
+        }
+    ))
+    fig.update_layout(height=250)
+    st.plotly_chart(fig, use_container_width=True)
